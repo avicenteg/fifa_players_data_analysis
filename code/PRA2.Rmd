@@ -69,7 +69,7 @@ Se carga el archivo usando la función read.csv, con el separador como coma. Ade
 
 ```{r message= FALSE, warning=FALSE}
 
-datos<-read.csv("fifa.csv", header=T, sep=",", fileEncoding = "UTF-8")
+datos<-read.csv("../data/fifa.csv", header=T, sep=",", fileEncoding = "UTF-8")
 
 #inspeccionamos el dataset
 head(datos)
