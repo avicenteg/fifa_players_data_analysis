@@ -23,11 +23,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r load_packages, include=FALSE}
 library(caret)
 library(ggplot2)
+library(pROC)
 ```
 
 
 ******
-# Descripción del dataset
+# 1 Descripción del dataset
 ******
 
 El dataset utilizado, fifa.csv, está disponible en Kaggle: https://www.kaggle.com/artimous/complete-fifa-2017-player-dataset-global. 
@@ -66,7 +67,7 @@ En la actualidad, el fútbol forma parte de nuestra vida cotidiana y es el **dep
 
 
 ******
-# Intregración y selección de datos de interés a analizar
+# 2 Intregración y selección de datos de interés a analizar
 ******
 
 Se carga el archivo usando la función **read.csv()**, con el separador como coma. Además, se especifica que archivo está **codificado en UTF** para que pueda leer de manera correcta los caracteres especiales como tildes o diéresis.
@@ -90,10 +91,10 @@ str(datos)
 Como se ve, se dispone de **53 variables** que describen a cada jugador, y el tipo en el que se han cargado.
 
 ******
-# Limpieza de los datos
+# 3 Limpieza de los datos
 ******
 
-## Análisis de valores ausentes
+## 3.1. Análisis de valores ausentes
 
 Para realizar un análisis de los datos, realizamos un resumen de los mismos con la función **summary()**.
 ```{r message= FALSE, warning=FALSE}
@@ -115,7 +116,7 @@ fifaNet = datos[!is.na(datos$Club_Kit),]
 
 Por lo tanto, se dispone de unos datos limpios respecto a la ausencia de valores que podrán ser usados sin problemas.
 
-## Valores extremos
+## 3.2. Valores extremos
 Para analizar los **valores extremos** observamos nuevamente el summary de los datos. En este caso, **todas las estadísticas del jugador** se encuentran **entre 0 y 100** que son los **rangos habituales** de estos parámetros en el juego. Conviene realizar la **transformación del peso y la altura a variables numéricas** para así comprobar también si existe algún valor extremos que sea necesario tratar.
 
 ```{r message= FALSE, warning=FALSE}
@@ -135,10 +136,10 @@ boxplot(fifaNet$Weight, main = "Weight")
 Analizando ambas variables, aunque aparecen puntos fuera de los boxplot, se ve que **se mueven en rangos comunes** para peso y altura, por lo que no se identifican valores extremos.
 
 ******
-# Análisis de los datos
+# 4 Análisis de los datos
 ******
 
-## Selección de los grupos de datos que se quiere analizar/comparar
+## 4.1. Selección de los grupos de datos que se quiere analizar/comparar
 
 En esta práctica haremos tres aproximaciones para analizar el dataset elegido. Estos análisis se dividirán en tres apartados:
 
@@ -155,12 +156,12 @@ En el segundo apartado planteamos ajustar un modelo de regresión lineal múltip
 En tercer y último apartado ajustaremos un modelo predictivo basado en **regresión logística para predecir la probabilidad de que un jugador vaya a la selección de su país**. En este caso, para que la muestra sea más homogénea, hemos seleccionado solo aquellos jugadores nacidos en España. Por tanto, en este apartado usaremos un **subconjunto extraido de fifaNet incluyendo las estadísticas de los jugadores españoles (fifaNet_spain)**.
 
 ******
-## Estadística inferencial
+## 4.2. Estadística inferencial
 ******
 
 En este primer análisis se desea saber si, en el año 2017 **la diferencia entre valoración global (*Rating*) entre los jugadores del Real Betis y el Real Madrid era mayor a 5 puntos**. Para ello se llevará a cabo un **contraste de hipótesis**.
 
-### Comprobación de normalidad
+### 4.2.1. Comprobación de normalidad
 
 Para comprobar si la variable *Rating* se distribuye de manera normal, se puede realizar su **histograma** y evaluar si se corresponde con una **distribución normal**.
 ```{r message= FALSE, warning=FALSE}
@@ -176,9 +177,9 @@ qqline(fifaNet$Rating)
 
 Dado que los puntos se adaptan casi a la perfección a la recta en el QQ plot, y debido al tamaño elevado de la muestra, **asumimos normalidad de la variable *Rating* ** por el teorema del límite central.
 
-### Contraste de hipótesis para la diferencia de medias
+### 4.2.2. Contraste de hipótesis para la diferencia de medias
 
-#### Hipótesis nula y la alternativa
+#### 4.2.2.1. Hipótesis nula y la alternativa
 
 Se desea comprobar si la **valoración de los jugadores del Real Betis es 5 puntos menor que la de los jugadores del Real Madrid**. Para ello, las hipótesis para este caso se formulan del siguiente modo: 
 
@@ -192,11 +193,11 @@ H_{1}: & \mu_m-\mu_b>5\\
 $$
 Siendo $\mu_{m}$ la media de la valoración de los jugadores del Real Madrid y $\mu_{b}$ la media de la valoración de los jugadores del Real Betis.
 
-#### Test a aplicar
+#### 4.2.2.2. Test a aplicar
 
 El test a aplicar sería un **test unilateral sobre la diferencia de medias de dos muestras independientes (varianzas desconocidas)**. Es un **test unilateral por la derecha** porque la pregunta de investigación cuestiona si la media de los jugadores del Real Madrid es mayor a la de los jugadores del Real Betis.
 
-#### Aplicación y comprobación del test
+#### 4.2.2.3. Aplicación y comprobación del test
 
 Primeramente se deben obtener los datos de los jugadores del Real Madrid y Real Betis.
 
@@ -220,15 +221,16 @@ Dado que la hipótesis nula implica igualdad de varianzas, y el p-valor obtenido
 Por tanto, el test a aplicar será una t de Student con $\upsilon$ grados de libertad, también llamado **test de Welch**.
 
 ```{r message= FALSE, warning=FALSE}
-t.test(madrid_players,betis_players, var.equal = FALSE,alternative = "greater", mu = 5)
+t.test(madrid_players,betis_players, var.equal = FALSE,alternative = "greater",
+       mu = 5)
 ```
 
-### Interpretación del test
+### 4.2.3. Interpretación del test
 
 Se observa que el p-value obtenido es mayor que el nivel de significación 0,05, por tanto, **no se puede rechazar la hipótesis nula**, es decir, **la diferencia entre las plantillas del Betis y el Real Madrid en la temporada 2016/2017 era inferior a 5 puntos**, con una confianza del 95%.
 
 ******
-## Modelo de regresión lineal múltiple
+## 4.3. Modelo de regresión lineal múltiple
 ******
 
 Se desea estimar un **modelo de regresión lineal múltiple** que tenga como variables explicativas: Age, Weight, Club_Position, Vision, Ball_Control, Marking, Interceptions, Freekick_Accuracy, Short_Pass, Speed y Finishing; y como **variable dependiente el Rating de los jugadores**. Antes de realizar el modelo será necesario establecer el nivel base de referencia en la variables categórica *Club_Position*.
@@ -246,8 +248,9 @@ fifaNet$Club_Position = relevel(factor(fifaNet$Club_Position), ref=max_club)
 # 20-fold cv
 fitControl = trainControl(method = "cv", number = 20, savePredictions = T)
 # Modelo lineal Multiple
-multi_model_1 = train(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking+Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing, data=fifaNet, 
-                      method = "lm", trControl = fitControl)
+multi_model_1 = train(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking
+                      +Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing,
+                      data=fifaNet, method = "lm", trControl = fitControl)
 summary(multi_model_1)
 ```
 
@@ -266,7 +269,7 @@ qqline(residuals(multi_model_1))
 hist(residuals(multi_model_1), xlab = "Residuos", main="Histograma")
 ```
 
-### Interpretación del modelo
+### 4.3.1. Interpretación del modelo
 
 Se obtiene un modelo con un **R2 de 0.56**, lo que significa que el modelo apenas explica el 50% de la variabilidad de los datos, lo cual nos dice que **no se trata de un buen modelo** y que sería necesario introducir más variables. No obstante, en el **diagrama de dispersión**, donde representamos en el 'eje x' los valores de los residuos y en el 'eje y' los valores estimados, podemos comprobar como **la nube de puntos no tiene ninguna estructura ordenada y los valores rondan el valor cero**. Esto es **indicativo de un modelo correcto**. Por otro lado, **en un modelo correcto** donde los datos sigan una distribución normal, **los valores de los residuos deben seguir también una distribución normal**. Esto lo podemos comprobar con un **gráfico cuantil-cuantil y/o un histograma**. Como podemos comprobar en ambos gráficos, **los residuos están normalmente distribuidos**.
 
@@ -281,7 +284,7 @@ Respecto a las demás:
 * El marcaje, la precisión de tiro libre y la finalización **influyen de manera negativa** en el rating.
 
 ******
-## Regresión logística 
+## 4.4. Regresión logística 
 ******
 Utilizando diferentes variables explicativas, como *Age* o *Rating*, se ajusta un **modelo predictivo basado en regresión logística** para predecir la **probabilidad de que un jugador vaya a la selección** de su país. Para que la muestra sea más homogénea, este modelo se realizará solo con **jugadores españoles** (Nationality == Spain).
 
@@ -303,7 +306,7 @@ fifaNet$portero = as.factor(fifaNet$portero)
 Filtramos el dataset original (fifaNet) para generar un segundo dataset solo con **jugadores españoles (fifaNet_spain)**. Será con este set de datos con el que se ajuste el modelo predictivo.
 
 ```{r spain}
-fifaNet_spain = fifaNet[fifaNet$Nationality == "Spain" , ]
+fifaNet_spain = fifaNet[fifaNet$Nationality == "Spain", ]
 ```
 
 Se realiza una 20-fold cross-validation mediante la función **trainControl()** del paquete *caret*.
@@ -324,14 +327,21 @@ obs_bin = factor((model_fit$pred)$obs)
 confusionMatrix(table(pred_bin,obs_bin), positive = "1")
 ```
 
-### Interpretación del modelo
+### 4.4.1. Interpretación del modelo
 
 Consideramos que hemos conseguido **un buen modelo para predecir si un jugador español es convocado o no por la selección**.
 
-Se observa una estimación de la **precisión del modelo en torno al 99%**, lo cual es una precisión muy buena. Por otra parte, si se analiza la **sensibilidad, se observa que es del 74%**. Aunque está lejos del valor que toma la precisión, la posibilidad de acertar si un jugador seleccionado por su selección es aceptable. Por último, la **especificidad es casi del 100%**, es decir, la posibilidad de detectar realmente los casos en los que no irá a la selección es casi perfecta.
+Se observa una estimación de la **precisión del modelo en torno al 99%**, lo cual es una precisión muy buena. Por otra parte, si se analiza la **sensibilidad, se observa que es del 74%**. Aunque está lejos del valor que toma la precisión, la posibilidad de acertar si un jugador seleccionado por su selección es aceptable. Por último, la **especificidad es casi del 100%**, es decir, la posibilidad de detectar realmente los casos en los que no irá a la selección es casi perfecta. Esto se visualiza mediante una **curva ROC**.
+
+```{r roc, message=FALSE, warning=FALSE}
+curve = roc(response=factor(fifaNet_spain$internacional),
+            predictor=as.numeric(predict(model_fit)))
+plot.roc(curve, main="ROC curve")
+```
+
 
 ******
-# Conclusiones
+# 5 Conclusiones
 ******
 Las conclusiones obtenidas a partir del análisis de los datos de jugadores de fútbol en el FIFA17 son:
 * El contraste de hipótesis no nos ha permitido afirmar que existe una diferencia de más de 5 puntos entre los jugadores del Real Madrid y el Real Betis.
