@@ -20,6 +20,9 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+```{r load_packages, include=FALSE}
+library(caret)
+```
 
 
 ******
@@ -27,7 +30,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ******
 
 El dataset utilizado, fifa.csv, está disponible en Kaggle: https://www.kaggle.com/artimous/complete-fifa-2017-player-dataset-global. 
-Este dataset contiene las estadísticas de los jugadores en el videojuego Fifa 17. Contiene 17588 filas con 53 variables diferentes para describir a cada jugador. 
+Este dataset contiene las **estadísticas de los jugadores en el videojuego Fifa 17**. Contiene 17588 filas con 53 variables diferentes para describir a cada jugador. 
 Entre estas variables nos encontramos con las siguientes:
 
 - Name (Nombre del jugador)
@@ -51,39 +54,39 @@ Entre estas variables nos encontramos con las siguientes:
 - Skill_Moves (valoración de 1 a 5 de la habilidad en movimientos del jugador)
 - El resto de variables son los distintos atributos que definen a un jugador en este juego.
 
-******
-# Importancia del dataset y objetivo
-******
 
-En la actualidad, el mundo del futbol, ya sea en videojuegos o en la vida real siempre levanta grandes controversias, por esto mismo, realizar un análisis estadístico de los datos puede permitir arrojar cordura por encima de los sentimientos. Por esto, en este documento se planteará: 
-- Si en el año 2017, la diferencia entre valoración global entre los jugadores del Real Betis y el Real Madrid era mayor a 5 puntos.
-- Si existe correlación entre la media de un jugador y que acuda o no con su selección.
-- Obtener un modelo de regresión que nos permita estimar la valoración de un jugador a partir de un subjconjunto de sus atributos.
+En la actualidad, el fútbol forma parte de nuestra vida cotidiana y es el **deporte con un mayor impacto social**. Aunque no deja de ser un videojuego, FIFA maneja tantos detalles sobre los jugadores que los ojeadores y los empleados de los clubes lo usan como herramienta para buscar nuevos jugadores que de otra manera no podrían ver. Por ello, realizar un análisis estadístico de los datos de este juego podría permitir arrojar cordura por encima de los sentimientos a la hora de tomar diferentes decisiones. Como ejemplo de estos análisis, **en este documento se planteará**:
+
+* Si en el año 2017, la diferencia entre valoración global entre los jugadores del Real Betis y el Real Madrid era mayor a 5 puntos.
+
+* Si existe correlación entre la media de un jugador y el hecho de que sea convocado o no con su selección nacional.
+
+* Obtener un modelo de regresión que nos permita estimar la valoración de un jugador a partir de un subjconjunto de sus atributos.
 
 
 ******
 # Intregración y selección de datos de interés a analizar
 ******
 
-Se carga el archivo usando la función read.csv, con el separador como coma. Además, se especifica que archivo está codificado en UTF para que pueda leer de manera correcta los caracteres especiales como tildes o diéresis.
+Se carga el archivo usando la función **read.csv()**, con el separador como coma. Además, se especifica que archivo está **codificado en UTF** para que pueda leer de manera correcta los caracteres especiales como tildes o diéresis.
 
-```{r message= FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 
-datos<-read.csv("../data/fifa.csv", header=T, sep=",", fileEncoding = "UTF-8")
+datos = read.csv("../data/fifa.csv", header=T, sep=",", fileEncoding = "UTF-8")
 
-#inspeccionamos el dataset
+# inspeccionamos el dataset
 head(datos)
 ```
 
-Usando el comando head se pueden inspeccionar las primeras líneas del fichero, y se observa que se ha asignado correctamente el nombre de cada variable.
+Usando el comando **head()** se inspeccionan las primeras líneas del fichero, y se observa que se ha asignado correctamente el nombre de cada variable.
 
-Para ver qué tipo de datos se asigna a cada variable se utiliza la función str().
+Para ver qué tipo de datos se asigna a cada variable se utiliza la función **str()**.
 
 ```{r message= FALSE, warning=FALSE}
 str(datos)
 ```
 
-Como se ve se dispone de 53 variables distintas que describen a cada jugador, y el tipo en el que se han cargado.
+Como se ve, se dispone de **53 variables** que describen a cada jugador, y el tipo en el que se han cargado.
 
 ******
 # Limpieza de los datos
@@ -91,130 +94,197 @@ Como se ve se dispone de 53 variables distintas que describen a cada jugador, y 
 
 ## Análisis de valores ausentes
 
-Para realizar un análisis de los datos, realizamos un resumen de los mismos.
+Para realizar un análisis de los datos, realizamos un resumen de los mismos con la función **summary()**.
 ```{r message= FALSE, warning=FALSE}
 summary(datos)
 ```
-Si se observa el resumen realizado, en él es posible estudiar qué variables disponen de valores ausentes, marcados como NA's. En este caso, de las variables numéricas referentes a estadísticas de jugadores, ninguna muestra valores ausentes. 
-Donde sí pueden observar valores ausentes es en National_Kit, National_Position, Club_Kit y Contract_Expiry. Las dos primeras columnas es normal que dispongan de valores nulos si el jugador nunca has sido seleccionado o no va en la actualidad con su selección nacional, en las otras dos columnas solo existe un valor nulo. Se puede comprobar que este valor corresponde a un único jugador.
+Si se observa el resumen realizado, en él es posible estudiar **qué variables disponen de valores ausentes**, marcados como NA's. En este caso, de **las variables numéricas referentes a estadísticas** de jugadores, **ninguna muestra valores ausentes**.
+
+Donde sí se pueden observar **valores ausentes es en las variables National_Kit, National_Position, Club_Kit y Contract_Expiry**. En el caso de las dos primeras variables, National_Kit y National_Position, es normal la existencia de valores nulos, ya que solo encontraremos un valor en estas variables si el jugador forma parte actualmente de la selección de su país. En las otras dos variables, Club_Kit y Contract_Expiry, **solo existe un valor nulo**. Se puede comprobar que **este valor corresponde a un único jugador**.
 
 ```{r message= FALSE, warning=FALSE}
 datos[is.na(datos$Club_Kit),]
 ```
 
-Concretamente el jugador es Didier Drogba, siendo además un agente libre. En el caso de esta observación, dado que no dispone de Posición en el club se eliminará ya que en los próximos ejercicios se usará dicha variable.
+Concretamente el jugador es **Didier Drogba**, siendo además un agente libre. En el caso de esta observación, **dado que no dispone de Posición en el club se eliminará ya que en los próximos apartados se usará dicha variable**.
 
 ```{r message= FALSE, warning=FALSE}
-fifaNet<-datos[!is.na(datos$Club_Kit),]
+fifaNet = datos[!is.na(datos$Club_Kit),]
 ```
 
 Por lo tanto, se dispone de unos datos limpios respecto a la ausencia de valores que podrán ser usados sin problemas.
 
 ## Valores extremos
-Para analizar los valores extremos observamos nuevamente el summary de los datos. En este caso, todas las estadísticas del jugador se encuentran entre 0 y 100 que son los rangos habituales de estos parámetros en el juego. Conviene realizar la transformación del peso y la altura a variables numéricas para así comprobar también si existe algún valor extremos que sea necesario tratar.
+Para analizar los **valores extremos** observamos nuevamente el summary de los datos. En este caso, **todas las estadísticas del jugador** se encuentran **entre 0 y 100** que son los **rangos habituales** de estos parámetros en el juego. Conviene realizar la **transformación del peso y la altura a variables numéricas* para así comprobar también si existe algún valor extremos que sea necesario tratar.
 
 ```{r message= FALSE, warning=FALSE}
 # Tranformamos ambas variables
-fifaNet$Height<-as.numeric(gsub("[[:alpha:]]","",fifaNet$Height))
-fifaNet$Weight<-as.numeric(gsub("[[:alpha:]]","",fifaNet$Weight))
+fifaNet$Height = as.numeric(gsub("[[:alpha:]]","",fifaNet$Height))
+fifaNet$Weight = as.numeric(gsub("[[:alpha:]]","",fifaNet$Weight))
 ```
-En este caso se ha eliminado cualquier caracter alfabético de las variables, aunque se podría también haber eliminado las cadenas 'kg' y 'cm' directamente. Comprobamos nuevamente el summary para estas dos variables en búsqueda de valores extremos:
+En este caso **se ha eliminado cualquier caracter alfabético de las variables**, aunque se podría también haber eliminado las cadenas 'kg' y 'cm' directamente. Comprobamos nuevamente el summary para estas dos variables en búsqueda de valores extremos:
 
 ```{r message= FALSE, warning=FALSE}
 summary(fifaNet[c("Height","Weight")])
 ```
-Analizando ambas variables se ve que se mueven en rangos comunes para peso y altura, por lo que no se identifican valores extremos.
+Analizando ambas variables se ve que **se mueven en rangos comunes** para peso y altura, por lo que no se identifican valores extremos.
 
 ******
 # Análisis de los datos
 ******
 
-## Comprobación de normalidad
+## Selección de los grupos de datos que se quiere analizar/comparar
 
-Para comprobar si la variable rating se distribuye de manera normal, se puede realizar su histograma y evaluar si se corresponde con una distribución normal.
+
+******
+## Estadística inferencial
+******
+
+En este primer análisis se desea saber si, en el año 2017 **la diferencia entre valoración global (*Rating*) entre los jugadores del Real Betis y el Real Madrid era mayor a 5 puntos**. Para ello se llevará a cabo un **contraste de hipótesis**.
+
+### Comprobación de normalidad
+
+Para comprobar si la variable *Rating* se distribuye de manera normal, se puede realizar su **histograma** y evaluar si se corresponde con una **distribución normal**.
 ```{r message= FALSE, warning=FALSE}
 # se usa la raiz cuadrada del numero de datos para establecer cuantas columnas usar
 hist(fifaNet$Rating, breaks=sqrt(nrow(fifaNet)))
 ```
 
-A la vista del histograma, parece que el peso sigue una distribución aproximadamente normal, pero con la cola derecha algo menor que la izquierda. Para confirmar la normalidad, se puede realizar un QQ plot de los valores de Rating.
+A la vista del histograma, **parece que esta variable sigue una distribución aproximadamente normal**, pero con la cola derecha algo menor que la izquierda. Para confirmar la normalidad, se puede realizar un **Q-Q plot** de los valores de *Rating*.
 ```{r message= FALSE, warning=FALSE}
 qqnorm(fifaNet$Rating)
 qqline(fifaNet$Rating)
 ```
-Dado que los puntos se adaptan casi a la perfección a la recta, se puede concluir que el rating sigue una distribución normal.
 
-## Contraste de hipótesis para la diferencia de medias
+Dado que los puntos se adaptan casi a la perfección a la recta en el QQ plot, y debido al tamaño elevado de la muestra, **asumimos normalidad de la variable *Rating* ** por el teorema del límite central.
 
-### Hipótesis nula y la alternativa
+### Contraste de hipótesis para la diferencia de medias
 
-Se desea comprobar si la valoración de los jugadores del Real Betis es 5 puntos menor que la de los jugadores del Real Madrid. Para ello, se realizará un test de hipótesis unilateral, de tal forma que: 
+#### Hipótesis nula y la alternativa
+
+Se desea comprobar si la **valoración de los jugadores del Real Betis es 5 puntos menor que la de los jugadores del Real Madrid**. Para ello, las hipótesis para este caso se formulan del siguiente modo: 
 
 $$
 \left\{
 \begin{array}{ll}
-H_{0}: &  \mu_p -\mu_c=5\\
-H_{1}: & \mu_p-\mu_c>5\\
+H_{0}: &  \mu_m -\mu_b=5\\
+H_{1}: & \mu_m-\mu_b>5\\
 \end{array}
 \right.
 $$
-### Test a aplicar
-Primeramente se deben obtener los datos de jugadores del Real Madrid y Betis.
+Siendo $\mu_{m}$ la media de la valoración de los jugadores del Real Madrid y $\mu_{b}$ la media de la valoración de los jugadores del Real Betis.
+
+#### Test a aplicar
+
+El test a aplicar sería un **test unilateral sobre la diferencia de medias de dos muestras independientes (varianzas desconocidas)**. Es un **test unilateral por la derecha** porque la pregunta de investigación cuestiona si la media de los jugadores del Real Madrid es mayor a la de los jugadores del Real Betis.
+
+#### Aplicación y comprobación del test
+
+Primeramente se deben obtener los datos de los jugadores del Real Madrid y Real Betis.
 
 ```{r message= FALSE, warning=FALSE}
-betis_players<-fifaNet$Rating[fifaNet$Club=="Real Betis"]
-madrid_players<-fifaNet$Rating[fifaNet$Club=="Real Madrid"]
+betis_players = fifaNet$Rating[fifaNet$Club=="Real Betis"]
+madrid_players = fifaNet$Rating[fifaNet$Club=="Real Madrid"]
 length(betis_players)
 length(madrid_players)
 ```
 
-Dado que acabamos de comprobar la normalidad de la variable, podemos asumir que esta normalidad se trasladará a los dos subconjuntos.
-Para concretar más aún el test que se va a realizar, será necesario realizar un test de homoscedasticidad, dado que se desconocen las varianzas poblacionales. Con este test, se comprobará si las varianzas son iguales el o diferentes. 
+Dado que acabamos de comprobar la normalidad de la variable *Rating*, podemos asumir que esta normalidad se trasladará a los dos subconjuntos.
+
+Para concretar más aún el test que se va a realizar, será necesario realizar un **test de homoscedasticidad**, dado que se desconocen las varianzas poblacionales. Con este test se comprobará si las varianzas son iguales o diferentes.
+
 ```{r message= FALSE, warning=FALSE}
 var.test(betis_players, madrid_players)
 ```
-Dado que la hipótesis nula implica igualdad de varianzas, y el p-valor obtenido es inferior al nivel de significación $\alpha$ (0.05), se rechaza la hipótesis nula y se asume que las varianzas son diferentes.
-Por tanto, el test a aplicar será una t de Student con $\upsilon$ grados de libertad, también llamado test de Welch.
+
+Dado que la hipótesis nula implica igualdad de varianzas, y el p-valor obtenido es inferior al nivel de significación $\alpha$ (0.05), se rechaza la hipótesis nula y **se asume que las varianzas son diferentes**.
+
+Por tanto, el test a aplicar será una t de Student con $\upsilon$ grados de libertad, también llamado **test de Welch**.
 
 ```{r message= FALSE, warning=FALSE}
 t.test(madrid_players,betis_players, var.equal = FALSE,alternative = "greater", mu = 5)
 ```
 
-## Interpretación del test
+### Interpretación del test
 
-Se observa que el p-value obtenido es mayor que el nivel de significación 0,05, por tanto, no se puede rechazar la hipótesis nula, es decir, la diferencia entre las plantillas del Betis y el Real Madrid en la temporada 2016/2017 era inferior a 5 puntos, con una confianza del 95%.
+Se observa que el p-value obtenido es mayor que el nivel de significación 0,05, por tanto, **no se puede rechazar la hipótesis nula**, es decir, **la diferencia entre las plantillas del Betis y el Real Madrid en la temporada 2016/2017 era inferior a 5 puntos**, con una confianza del 95%.
 
 ******
-# Modelo de regresión lineal
+## Modelo de regresión lineal múltiple
 ******
 
-Se desea estimar un modelo de regresión lineal múltiple que tenga como variables explicativas: Age, Weight, Preffered_Foot, Vision, Ball_Control, y como variable dependiente el Rating de los jugadores. Antes de relalizar el modelo será necesario establecer el nivel base de referencia en las variables cualitativas.
-```{r message= FALSE, warning=FALSE}
-multi_model_1 <- lm(Rating~Age+Weight+ Club_Position +Vision+Ball_Control+
-                      +Marking + Interceptions+ Freekick_Accuracy +
-                      Short_Pass +Speed+ +Finishing,data=fifaNet)
+Se desea estimar un **modelo de regresión lineal múltiple** que tenga como variables explicativas: Age, Weight, Club_Position, Vision, Ball_Control, Marking, Interceptions, Freekick_Accuracy, Short_Pass, Speed y Finishing; y como **variable dependiente el Rating de los jugadores**. Antes de realizar el modelo será necesario establecer el nivel base de referencia en la variables categórica *Club_Position*.
+
+
+```{r cat}
+# Fijamos como valor referencia el valor mayoritarío para variable cat.
+fifaNet$Club_Position = relevel(factor(fifaNet$Club_Position), ref=max(fifaNet$Club_Position))
+# Modelo lineal Multiple
+multi_model_1 = lm(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking+Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing,data=fifaNet)
 summary(multi_model_1)
 ```
 
-## Interpretación del modelo
+Para una mejor diagnosis del modelo, se toma el modelo construído y **se realiza un estudio de sus residuos**. Los residuos se definen como **la diferencia entre los valores observados en la muestra y los valores estimados por el modelo**. Los valores que tomen estos residuos determinarán la adecuación del modelo.
 
-Se obtiene un modelo con un R2 de 0.56, lo que significa que el modelo apenas explica el 50% de la variabilidad de los datos, lo cual nos dice que se trata de un mal modelo y que sería necesario introducir más variables.
-De las variables utilizadas todas resultan signficativas (p<0.05) a excepción de alguna de las demarcaciones del judaror en su clubo.
-Respecto a las demás:
-- La edad, el peso, la vision, el control del balón, las interecpciones, pases cortos y velocidad influyen positivamente en el rating.
-- Algunas posiciones como ser portero influye positivamente en el rating. Esto tiene sentido, ya que no se ha introducido ninguno de los atributos propios de porteros y por tanto, a pesar de tener valores más bajos, obtienen mejores medias.
-- El marcaje, la precisión de tiro libre y la finalización influyen de manera negativa en el rating.
-
-******
-# Correlación 
-******
-```{r message= FALSE, warning=FALSE}
-fifaNet$internacional[is.na(fifaNet$National_Kit)]<-0
-fifaNet$internacional[!is.na(fifaNet$National_Kit)]<-1
-
+```{r residuos}
+# Valores ajustados vs Residuos
+par(mai=rep(0.6, 4))
+layout(matrix(c(1,1, 2,2, 0, 3,3, 0), ncol = 4, byrow = TRUE))
+plot(fitted(multi_model_1), residuals(multi_model_1), main="Diagrama de dispersión")
+abline(h=0)
+# QQ plot
+qqnorm(residuals(multi_model_1), ylab="Residuos", main="Gráfico cuantil-cuantil")
+qqline(residuals(multi_model_1))
+# Histograma para comprobar normalidad
+hist(residuals(multi_model_1), xlab = "Residuos", main="Histograma")
 ```
-https://rpubs.com/osoramirez/316691
 
+### Interpretación del modelo
+
+Se obtiene un modelo con un **R2 de 0.56**, lo que significa que el modelo apenas explica el 50% de la variabilidad de los datos, lo cual nos dice que **no se trata de un buen modelo** y que sería necesario introducir más variables. No obstante, en el **diagrama de dispersión**, donde representamos en el 'eje x' los valores de los residuos y en el 'eje y' los valores estimados, podemos comprobar como **la nube de puntos no tiene ninguna estructura ordenada y los valores rondan el valor cero**. Esto es **indicativo de un modelo correcto**. Por otro lado, **en un modelo correcto** donde los datos sigan una distribución normal, **los valores de los residuos deben seguir también una distribución normal**. Esto lo podemos comprobar con un **gráfico cuantil-cuantil y/o un histograma**. Como podemos comprobar en ambos gráficos, **los residuos están normalmente distribuidos**.
+
+
+De las variables utilizadas todas **resultan signficativas (p<0.05)** a excepción de alguna de las demarcaciones del jugador en su club.
+Respecto a las demás:
+
+* La edad, el peso, la vision, el control del balón, las interecpciones, pases cortos y velocidad **influyen positivamente** en el rating.
+
+* Algunas posiciones como ser portero influye positivamente en el rating. Esto tiene sentido, ya que no se ha introducido ninguno de los atributos propios de porteros y por tanto, a pesar de tener valores más bajos, obtienen mejores medias.
+
+* El marcaje, la precisión de tiro libre y la finalización **influyen de manera negativa** en el rating.
+
+******
+## Regresión logística 
+******
+
+```{r}
+fifaNet$internacional[is.na(fifaNet$National_Kit)] = 0
+fifaNet$internacional[!is.na(fifaNet$National_Kit)] = 1
+```
+
+```{r}
+fifaNet$portero[fifaNet$Club_Position=="GK"] = "Portero"
+fifaNet$portero[fifaNet$Club_Position!="GK"] = "Jugador"
+fifaNet$portero = as.factor(fifaNet$portero)
+```
+
+```{r}
+intrain = createDataPartition(y=fifaNet$internacional, p=0.8, list=F)
+train = fifaNet[intrain, ]
+test = fifaNet[-intrain, ]
+```
+
+```{r}
+model_2 = glm(formula=internacional~Age+Rating+portero+Work_Rate,data=train, family = binomial(link=logit))
+```
+
+```{r}
+probabilidades = predict(model_2, test, type = "response")
+predict_c = factor(ifelse(probabilidades >= 0.5, 1, 0))
+confusionMatrix(data=predict_c, reference=factor(test$internacional), positive = "1")
+```
+
+https://rpubs.com/osoramirez/316691
 
 
 ******
