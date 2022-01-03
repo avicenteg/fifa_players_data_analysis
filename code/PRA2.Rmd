@@ -340,3 +340,24 @@ Las conclusiones obtenidas a partir del análisis de los datos de jugadores de f
 
 * Se obtenido un modelo de regresión 
 
+******
+# Contribuciones
+******
+
+```
+| Contribuciones                | Firma       |
+|-------------------------------|-------------|
+| Investigación previa          | PRNV; AVG   |
+| Redacción de las respuestas   | PRNV; AVG   |
+| Desarrrollo código            | PRNV; AVG   |
+```
+
+******
+# Fichero final
+******
+Se exporta el dataframe limpio a un fichero csv.
+```{r message= FALSE, warning=FALSE}
+write.csv(fifaNet,"../datos/fifaNet.csv", col.names = T,row.names=F)
+write.csv(fifaNet_spain,"../datos/fifaNetSpain.csv", col.names = T,row.names=F)
+```
+
