@@ -60,9 +60,9 @@ En la actualidad, el fútbol forma parte de nuestra vida cotidiana y es el **dep
 
 * Si en el año 2017, la diferencia entre valoración global entre los jugadores del Real Betis y el Real Madrid era mayor a 5 puntos.
 
-* Si existe correlación entre la media de un jugador y el hecho de que sea convocado o no con su selección nacional.
-
 * Obtener un modelo de regresión que nos permita estimar la valoración de un jugador a partir de un subjconjunto de sus atributos.
+
+* Obtener un modelo de regresión que nos permita determinar qué jugadores tienen más probabilidades de ir con la selección española.
 
 
 ******
@@ -116,19 +116,23 @@ fifaNet = datos[!is.na(datos$Club_Kit),]
 Por lo tanto, se dispone de unos datos limpios respecto a la ausencia de valores que podrán ser usados sin problemas.
 
 ## Valores extremos
-Para analizar los **valores extremos** observamos nuevamente el summary de los datos. En este caso, **todas las estadísticas del jugador** se encuentran **entre 0 y 100** que son los **rangos habituales** de estos parámetros en el juego. Conviene realizar la **transformación del peso y la altura a variables numéricas* para así comprobar también si existe algún valor extremos que sea necesario tratar.
+Para analizar los **valores extremos** observamos nuevamente el summary de los datos. En este caso, **todas las estadísticas del jugador** se encuentran **entre 0 y 100** que son los **rangos habituales** de estos parámetros en el juego. Conviene realizar la **transformación del peso y la altura a variables numéricas** para así comprobar también si existe algún valor extremos que sea necesario tratar.
 
 ```{r message= FALSE, warning=FALSE}
 # Tranformamos ambas variables
 fifaNet$Height = as.numeric(gsub("[[:alpha:]]","",fifaNet$Height))
 fifaNet$Weight = as.numeric(gsub("[[:alpha:]]","",fifaNet$Weight))
 ```
-En este caso **se ha eliminado cualquier caracter alfabético de las variables**, aunque se podría también haber eliminado las cadenas 'kg' y 'cm' directamente. Comprobamos nuevamente el summary para estas dos variables en búsqueda de valores extremos:
+En este caso **se ha eliminado cualquier caracter alfabético de las variables**, aunque se podría también haber eliminado las cadenas 'kg' y 'cm' directamente. Comprobamos los boxplot de ambas variables para estas dos variables en búsqueda de valores extremos:
 
 ```{r message= FALSE, warning=FALSE}
-summary(fifaNet[c("Height","Weight")])
+par(mai=rep(0.6, 4))
+layout(matrix(c(1,1, 2,2), ncol = 2))
+boxplot(fifaNet$Height, main = "Height")
+boxplot(fifaNet$Weight, main = "Weight")
+
 ```
-Analizando ambas variables se ve que **se mueven en rangos comunes** para peso y altura, por lo que no se identifican valores extremos.
+Analizando ambas variables, aunque aparecen puntos fuera de los boxplot, se ve que **se mueven en rangos comunes** para peso y altura, por lo que no se identifican valores extremos.
 
 ******
 # Análisis de los datos
@@ -229,13 +233,20 @@ Se observa que el p-value obtenido es mayor que el nivel de significación 0,05,
 
 Se desea estimar un **modelo de regresión lineal múltiple** que tenga como variables explicativas: Age, Weight, Club_Position, Vision, Ball_Control, Marking, Interceptions, Freekick_Accuracy, Short_Pass, Speed y Finishing; y como **variable dependiente el Rating de los jugadores**. Antes de realizar el modelo será necesario establecer el nivel base de referencia en la variables categórica *Club_Position*.
 
+Para obtener un resultado más fiable, se utilizará una **validación cruzada con 20 iteraciones**.
 
 ```{r cat}
 # Fijamos como valor referencia el valor mayoritarío para variable cat.
-fifaNet$Club_Position = relevel(factor(fifaNet$Club_Position), ref=max(fifaNet$Club_Position))
+if (!is.factor(fifaNet$Club_Position)){
+  max_club = max(fifaNet$Club_Position)
+}
 
+fifaNet$Club_Position = relevel(factor(fifaNet$Club_Position), ref=max_club)
+# 20-fold cv
+fitControl = trainControl(method = "cv", number = 20, savePredictions = T)
 # Modelo lineal Multiple
-multi_model_1 = lm(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking+Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing,data=fifaNet)
+multi_model_1 = train(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking+Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing, data=fifaNet, 
+                      method = "lm", trControl = fitControl)
 summary(multi_model_1)
 ```
 
@@ -315,10 +326,13 @@ confusionMatrix(table(pred_bin,obs_bin), positive = "1")
 
 Consideramos que hemos conseguido **un buen modelo para predecir si un jugador español es convocado o no por la selección**.
 
-Se observa una estimación de la **precisión del modelo en torno al 99%**, lo cual es una precisión muy buena. Por otra parte, si se analiza la **sensibilidad, se observa que es del 74%**. Aunque está lejos del valor que toma la precisión, la posibilidad de acertar si un jugador seleccionado por su selección es aceptable Por último, la **especificidad es casi del 100%**, es decir, la posibilidad de detectar realmente los casos en los que no irá a la selección es casi perfecta.
+Se observa una estimación de la **precisión del modelo en torno al 99%**, lo cual es una precisión muy buena. Por otra parte, si se analiza la **sensibilidad, se observa que es del 74%**. Aunque está lejos del valor que toma la precisión, la posibilidad de acertar si un jugador seleccionado por su selección es aceptable. Por último, la **especificidad es casi del 100%**, es decir, la posibilidad de detectar realmente los casos en los que no irá a la selección es casi perfecta.
 
 ******
 # Conclusiones
 ******
-
+Las conclusiones obtenidas a partir del análisis de los datos de jugadores de fútbol en el FIFA17 son:
+- El contraste de hipótesis no nos ha permitido afirmar que existe una diferencia de más de 5 puntos entre los jugadores del Real Madrid y el Real Betis.
+- Se obtenido un modelo de regresión lineal para la valoración media de cada jugador que a pesar de ser correcto, no ha mostrado una gran precisión, probablemente debido a que se ha mezclado jugadores de campo con porteros, y eso complica la obtención de la media de cada jugador.
+- Se obtenido un modelo de regresión 
 
