@@ -534,6 +534,19 @@ fifaNet$Weight = as.numeric(gsub(&quot;[[:alpha:]]&quot;,&quot;&quot;,fifaNet$We
 <hr />
 <div id="selección-de-los-grupos-de-datos-que-se-quiere-analizarcomparar" class="section level2" number="4.1">
 <h2 number="4.1"><span class="header-section-number">4.1</span> Selección de los grupos de datos que se quiere analizar/comparar</h2>
+<p>En esta práctica haremos tres aproximaciones para analizar el dataset elegido. Estos análisis se dividirán en tres apartados:</p>
+<ul>
+<li><strong>Estadística inferencial</strong></li>
+</ul>
+<p>En este apartado <strong>analizaremos las plantillas del Real Madrid y el Real Betis</strong>. Plantearemos como pregunta de investigación si el <em>Rating</em> general de cada una de las plantillas se diferencian en más de 5 puntos. Para realizar este análisis deberemos hacer <strong>dos grupos de datos</strong>: madrid_players y betis_players.</p>
+<ul>
+<li><strong>Modelo de regresión lineal múltiple</strong></li>
+</ul>
+<p>En el segundo apartado planteamos ajustar un modelo de regresión lineal múltiple para estimar el rating general de los jugadores. En este apartado <strong>usaremos la totalidad del dataset (fifaNet)</strong>, usando como variables explicativas las variables <em>Age</em>, <em>Weight</em>, <em>Club_Position</em>, <em>Vision</em>, <em>Ball_Control</em>, <em>Marking</em>, <em>Interceptions</em>, <em>Freekick_Accuracy</em>, <em>Short_Pass</em>, <em>Speed</em> y <em>Finishing</em>.</p>
+<ul>
+<li><strong>Regresión logística</strong></li>
+</ul>
+<p>En tercer y último apartado ajustaremos un modelo predictivo basado en <strong>regresión logística para predecir la probabilidad de que un jugador vaya a la selección de su país</strong>. En este caso, para que la muestra sea más homogénea, hemos seleccionado solo aquellos jugadores nacidos en España. Por tanto, en este apartado usaremos un <strong>subconjunto extraido de fifaNet incluyendo las estadísticas de los jugadores españoles (fifaNet_spain)</strong>.</p>
 <hr />
 </div>
 <div id="estadística-inferencial" class="section level2" number="4.2">
@@ -621,6 +634,7 @@ length(betis_players)</code></pre>
 <p>Se desea estimar un <strong>modelo de regresión lineal múltiple</strong> que tenga como variables explicativas: Age, Weight, Club_Position, Vision, Ball_Control, Marking, Interceptions, Freekick_Accuracy, Short_Pass, Speed y Finishing; y como <strong>variable dependiente el Rating de los jugadores</strong>. Antes de realizar el modelo será necesario establecer el nivel base de referencia en la variables categórica <em>Club_Position</em>.</p>
 <pre class="r"><code># Fijamos como valor referencia el valor mayoritarío para variable cat.
 fifaNet$Club_Position = relevel(factor(fifaNet$Club_Position), ref=max(fifaNet$Club_Position))
+
 # Modelo lineal Multiple
 multi_model_1 = lm(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking+Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing,data=fifaNet)
 summary(multi_model_1)</code></pre>
@@ -708,47 +722,62 @@ hist(residuals(multi_model_1), xlab = &quot;Residuos&quot;, main=&quot;Histogram
 <div id="regresión-logística" class="section level2" number="4.4">
 <h2 number="4.4"><span class="header-section-number">4.4</span> Regresión logística</h2>
 <hr />
+<p>Utilizando diferentes variables explicativas, como <em>Age</em> o <em>Rating</em>, se ajusta un <strong>modelo predictivo basado en regresión logística</strong> para predecir la <strong>probabilidad de que un jugador vaya a la selección</strong> de su país. Para que la muestra sea más homogénea, este modelo se realizará solo con <strong>jugadores españoles</strong> (Nationality == Spain).</p>
+<p>Primero de todo, generaremos y usaremos la <strong>variable dicotómica ‘internacional’</strong>. Esta variable tomará el valor <strong>1 si el jugador forma parte de la selección</strong> de su país, y 0 en el caso contrario.</p>
 <pre class="r"><code>fifaNet$internacional[is.na(fifaNet$National_Kit)] = 0
 fifaNet$internacional[!is.na(fifaNet$National_Kit)] = 1</code></pre>
+<p>Para conseguir un mejor modelo, generaremos <strong>otra variable dicotómica, esta vez llamada ‘portero’</strong>, para diferenciar los jugadores de campo (‘Jugador’) y los porteros (‘Portero’).</p>
 <pre class="r"><code>fifaNet$portero[fifaNet$Club_Position==&quot;GK&quot;] = &quot;Portero&quot;
 fifaNet$portero[fifaNet$Club_Position!=&quot;GK&quot;] = &quot;Jugador&quot;
 fifaNet$portero = as.factor(fifaNet$portero)</code></pre>
-<pre class="r"><code>intrain = createDataPartition(y=fifaNet$internacional, p=0.8, list=F)
-train = fifaNet[intrain, ]
-test = fifaNet[-intrain, ]</code></pre>
-<pre class="r"><code>model_2 = glm(formula=internacional~Age+Rating+portero+Work_Rate,data=train, family = binomial(link=logit))</code></pre>
-<pre class="r"><code>probabilidades = predict(model_2, test, type = &quot;response&quot;)
-predict_c = factor(ifelse(probabilidades &gt;= 0.5, 1, 0))
-confusionMatrix(data=predict_c, reference=factor(test$internacional), positive = &quot;1&quot;)</code></pre>
+<p>Filtramos el dataset original (fifaNet) para generar un segundo dataset solo con <strong>jugadores españoles (fifaNet_spain)</strong>. Será con este set de datos con el que se ajuste el modelo predictivo.</p>
+<pre class="r"><code>fifaNet_spain = fifaNet[fifaNet$Nationality == &quot;Spain&quot; , ]</code></pre>
+<p>Se realiza una 20-fold cross-validation mediante la función <strong>trainControl()</strong> del paquete <em>caret</em>.</p>
+<pre class="r"><code># 20-fold cv
+fitControl = trainControl(method = &quot;cv&quot;, number = 20, savePredictions = T)
+# Ajuste del modelo (regresión logistica)
+model_fit = train(internacional~Age+Rating+portero+Work_Rate,data=fifaNet_spain, method = &quot;glm&quot;, family=&quot;binomial&quot;, trControl = fitControl)
+
+# Valores predichos y observados 
+pred_prob = (model_fit$pred)$pred
+pred_bin = factor(ifelse(pred_prob &gt;= 0.5, 1, 0))
+obs_bin = factor((model_fit$pred)$obs)
+
+# Matriz de confusión
+confusionMatrix(table(pred_bin,obs_bin), positive = &quot;1&quot;)</code></pre>
 <pre><code>## Confusion Matrix and Statistics
 ## 
-##           Reference
-## Prediction    0    1
-##          0 3310  182
-##          1    9   16
-##                                          
-##                Accuracy : 0.9457         
-##                  95% CI : (0.9377, 0.953)
-##     No Information Rate : 0.9437         
-##     P-Value [Acc &gt; NIR] : 0.3202         
-##                                          
-##                   Kappa : 0.1325         
-##                                          
-##  Mcnemar&#39;s Test P-Value : &lt;2e-16         
-##                                          
-##             Sensitivity : 0.080808       
-##             Specificity : 0.997288       
-##          Pos Pred Value : 0.640000       
-##          Neg Pred Value : 0.947881       
-##              Prevalence : 0.056298       
-##          Detection Rate : 0.004549       
-##    Detection Prevalence : 0.007108       
-##       Balanced Accuracy : 0.539048       
-##                                          
-##        &#39;Positive&#39; Class : 1              
+##         obs_bin
+## pred_bin   0   1
+##        0 980   6
+##        1   5  17
+##                                           
+##                Accuracy : 0.9891          
+##                  95% CI : (0.9806, 0.9945)
+##     No Information Rate : 0.9772          
+##     P-Value [Acc &gt; NIR] : 0.004098        
+##                                           
+##                   Kappa : 0.75            
+##                                           
+##  Mcnemar&#39;s Test P-Value : 1.000000        
+##                                           
+##             Sensitivity : 0.73913         
+##             Specificity : 0.99492         
+##          Pos Pred Value : 0.77273         
+##          Neg Pred Value : 0.99391         
+##              Prevalence : 0.02282         
+##          Detection Rate : 0.01687         
+##    Detection Prevalence : 0.02183         
+##       Balanced Accuracy : 0.86703         
+##                                           
+##        &#39;Positive&#39; Class : 1               
 ## </code></pre>
-<p><a href="https://rpubs.com/osoramirez/316691" class="uri">https://rpubs.com/osoramirez/316691</a></p>
+<div id="interpretación-del-modelo-1" class="section level3" number="4.4.1">
+<h3 number="4.4.1"><span class="header-section-number">4.4.1</span> Interpretación del modelo</h3>
+<p>Consideramos que hemos conseguido <strong>un buen modelo para predecir si un jugador español es convocado o no por la selección</strong>.</p>
+<p>Se observa una estimación de la <strong>precisión del modelo en torno al 99%</strong>, lo cual es una precisión muy buena. Por otra parte, si se analiza la <strong>sensibilidad, se observa que es del 74%</strong>. Aunque está lejos del valor que toma la precisión, la posibilidad de acertar si un jugador seleccionado por su selección es aceptable Por último, la <strong>especificidad es casi del 100%</strong>, es decir, la posibilidad de detectar realmente los casos en los que no irá a la selección es casi perfecta.</p>
 <hr />
+</div>
 </div>
 </div>
 <div id="conclusiones" class="section level1" number="5">

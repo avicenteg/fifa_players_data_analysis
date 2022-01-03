@@ -22,6 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ```{r load_packages, include=FALSE}
 library(caret)
+library(ggplot2)
 ```
 
 
@@ -135,6 +136,19 @@ Analizando ambas variables se ve que **se mueven en rangos comunes** para peso y
 
 ## Selección de los grupos de datos que se quiere analizar/comparar
 
+En esta práctica haremos tres aproximaciones para analizar el dataset elegido. Estos análisis se dividirán en tres apartados:
+
++ **Estadística inferencial**
+
+En este apartado **analizaremos las plantillas del Real Madrid y el Real Betis**. Plantearemos como pregunta de investigación si el *Rating* general de cada una de las plantillas se diferencian en más de 5 puntos. Para realizar este análisis deberemos hacer **dos grupos de datos**: madrid_players y betis_players. 
+
++ **Modelo de regresión lineal múltiple**
+
+En el segundo apartado planteamos ajustar un modelo de regresión lineal múltiple para estimar el rating general de los jugadores. En este apartado **usaremos la totalidad del dataset (fifaNet)**, usando como variables explicativas las variables *Age*, *Weight*, *Club_Position*, *Vision*, *Ball_Control*, *Marking*, *Interceptions*, *Freekick_Accuracy*, *Short_Pass*, *Speed* y *Finishing*.
+
++ **Regresión logística**
+
+En tercer y último apartado ajustaremos un modelo predictivo basado en **regresión logística para predecir la probabilidad de que un jugador vaya a la selección de su país**. En este caso, para que la muestra sea más homogénea, hemos seleccionado solo aquellos jugadores nacidos en España. Por tanto, en este apartado usaremos un **subconjunto extraido de fifaNet incluyendo las estadísticas de los jugadores españoles (fifaNet_spain)**.
 
 ******
 ## Estadística inferencial
@@ -219,6 +233,7 @@ Se desea estimar un **modelo de regresión lineal múltiple** que tenga como var
 ```{r cat}
 # Fijamos como valor referencia el valor mayoritarío para variable cat.
 fifaNet$Club_Position = relevel(factor(fifaNet$Club_Position), ref=max(fifaNet$Club_Position))
+
 # Modelo lineal Multiple
 multi_model_1 = lm(Rating~Age+Weight+Club_Position+Vision+Ball_Control+Marking+Interceptions+Freekick_Accuracy+Short_Pass+Speed+Finishing,data=fifaNet)
 summary(multi_model_1)
@@ -256,11 +271,16 @@ Respecto a las demás:
 ******
 ## Regresión logística 
 ******
+Utilizando diferentes variables explicativas, como *Age* o *Rating*, se ajusta un **modelo predictivo basado en regresión logística** para predecir la **probabilidad de que un jugador vaya a la selección** de su país. Para que la muestra sea más homogénea, este modelo se realizará solo con **jugadores españoles** (Nationality == Spain).
 
-```{r}
+Primero de todo, generaremos y usaremos la **variable dicotómica 'internacional'**. Esta variable tomará el valor **1 si el jugador forma parte de la selección** de su país, y 0 en el caso contrario.
+
+```{r internacional}
 fifaNet$internacional[is.na(fifaNet$National_Kit)] = 0
 fifaNet$internacional[!is.na(fifaNet$National_Kit)] = 1
 ```
+
+Para conseguir un mejor modelo, generaremos **otra variable dicotómica, esta vez llamada 'portero'**, para diferenciar los jugadores de campo ('Jugador') y los porteros ('Portero').
 
 ```{r}
 fifaNet$portero[fifaNet$Club_Position=="GK"] = "Portero"
@@ -268,24 +288,34 @@ fifaNet$portero[fifaNet$Club_Position!="GK"] = "Jugador"
 fifaNet$portero = as.factor(fifaNet$portero)
 ```
 
-```{r}
-intrain = createDataPartition(y=fifaNet$internacional, p=0.8, list=F)
-train = fifaNet[intrain, ]
-test = fifaNet[-intrain, ]
+Filtramos el dataset original (fifaNet) para generar un segundo dataset solo con **jugadores españoles (fifaNet_spain)**. Será con este set de datos con el que se ajuste el modelo predictivo.
+
+```{r spain}
+fifaNet_spain = fifaNet[fifaNet$Nationality == "Spain" , ]
 ```
 
-```{r}
-model_2 = glm(formula=internacional~Age+Rating+portero+Work_Rate,data=train, family = binomial(link=logit))
+Se realiza una 20-fold cross-validation mediante la función **trainControl()** del paquete *caret*.
+
+```{r message=FALSE, warning=FALSE}
+# 20-fold cv
+fitControl = trainControl(method = "cv", number = 20, savePredictions = T)
+# Ajuste del modelo (regresión logistica)
+model_fit = train(internacional~Age+Rating+portero+Work_Rate,data=fifaNet_spain, method = "glm", family="binomial", trControl = fitControl)
+
+# Valores predichos y observados 
+pred_prob = (model_fit$pred)$pred
+pred_bin = factor(ifelse(pred_prob >= 0.5, 1, 0))
+obs_bin = factor((model_fit$pred)$obs)
+
+# Matriz de confusión
+confusionMatrix(table(pred_bin,obs_bin), positive = "1")
 ```
 
-```{r}
-probabilidades = predict(model_2, test, type = "response")
-predict_c = factor(ifelse(probabilidades >= 0.5, 1, 0))
-confusionMatrix(data=predict_c, reference=factor(test$internacional), positive = "1")
-```
+### Interpretación del modelo
 
-https://rpubs.com/osoramirez/316691
+Consideramos que hemos conseguido **un buen modelo para predecir si un jugador español es convocado o no por la selección**.
 
+Se observa una estimación de la **precisión del modelo en torno al 99%**, lo cual es una precisión muy buena. Por otra parte, si se analiza la **sensibilidad, se observa que es del 74%**. Aunque está lejos del valor que toma la precisión, la posibilidad de acertar si un jugador seleccionado por su selección es aceptable Por último, la **especificidad es casi del 100%**, es decir, la posibilidad de detectar realmente los casos en los que no irá a la selección es casi perfecta.
 
 ******
 # Conclusiones
