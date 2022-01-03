@@ -1,8 +1,11 @@
 ---
 title: 'PEC 4 - Análisis de varianza y repaso'
 author: "Autores : Pablo Román-Naranjo Varela y Adrián Vicente Gómez"
-date: "Enero 2021"
+date: "Enero 2022"
 output:
+  pdf_document:
+    highlight: zenburn
+    toc: yes
   html_document:
     highlight: default
     number_sections: yes
@@ -11,9 +14,6 @@ output:
     toc_depth: 2
     includes:
       in_header: PEC-header.html
-  pdf_document:
-    highlight: zenburn
-    toc: yes
   word_document: default
 ---
 
@@ -236,6 +236,7 @@ Se desea estimar un **modelo de regresión lineal múltiple** que tenga como var
 Para obtener un resultado más fiable, se utilizará una **validación cruzada con 20 iteraciones**.
 
 ```{r cat}
+library(caret)
 # Fijamos como valor referencia el valor mayoritarío para variable cat.
 if (!is.factor(fifaNet$Club_Position)){
   max_club = max(fifaNet$Club_Position)
@@ -311,7 +312,8 @@ Se realiza una 20-fold cross-validation mediante la función **trainControl()** 
 # 20-fold cv
 fitControl = trainControl(method = "cv", number = 20, savePredictions = T)
 # Ajuste del modelo (regresión logistica)
-model_fit = train(internacional~Age+Rating+portero+Work_Rate,data=fifaNet_spain, method = "glm", family="binomial", trControl = fitControl)
+model_fit = train(internacional~Age+Rating+portero+Work_Rate,data=fifaNet_spain, 
+                  method = "glm", family="binomial", trControl = fitControl)
 
 # Valores predichos y observados 
 pred_prob = (model_fit$pred)$pred
@@ -332,7 +334,9 @@ Se observa una estimación de la **precisión del modelo en torno al 99%**, lo c
 # Conclusiones
 ******
 Las conclusiones obtenidas a partir del análisis de los datos de jugadores de fútbol en el FIFA17 son:
-- El contraste de hipótesis no nos ha permitido afirmar que existe una diferencia de más de 5 puntos entre los jugadores del Real Madrid y el Real Betis.
-- Se obtenido un modelo de regresión lineal para la valoración media de cada jugador que a pesar de ser correcto, no ha mostrado una gran precisión, probablemente debido a que se ha mezclado jugadores de campo con porteros, y eso complica la obtención de la media de cada jugador.
-- Se obtenido un modelo de regresión 
+* El contraste de hipótesis no nos ha permitido afirmar que existe una diferencia de más de 5 puntos entre los jugadores del Real Madrid y el Real Betis.
+
+* Se obtenido un modelo de regresión lineal para la valoración media de cada jugador que a pesar de ser correcto, no ha mostrado una gran precisión, probablemente debido a que se ha mezclado jugadores de campo con porteros, y eso complica la obtención de la media de cada jugador.
+
+* Se obtenido un modelo de regresión 
 
